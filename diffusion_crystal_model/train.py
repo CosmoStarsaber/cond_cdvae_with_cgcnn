@@ -214,7 +214,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🚀 启动终极晶体扩散框架！计算设备: {device}")
+    print(f" 启动终极晶体扩散框架！计算设备: {device}")
     
     dataset = CrystalDataset(args.data)
     cond_dim = dataset.cond_dim
@@ -252,7 +252,7 @@ if __name__ == "__main__":
 
         print(f"Ep [{epoch+1:03d}] | Tr Diff: {a_tr_d:.3f} (Prop:{a_tr_p:.3f}) | Val Diff: {a_va_d:.3f} (Prop:{a_va_p:.3f})")
 
-    print("\n" + "="*50 + "\n🔥 训练完毕，启动物理条件扩散去噪生成\n" + "="*50)
+    print("\n" + "="*50 + "\n 训练完毕，启动物理条件扩散去噪生成\n" + "="*50)
     targets = (args.target_props + [0.0] * cond_dim)[:cond_dim]
     norm_targets = (np.array(targets, dtype=np.float32) - dataset.prop_mean) / dataset.prop_std
     
