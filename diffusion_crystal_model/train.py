@@ -1,8 +1,12 @@
 """
 train.py
 
-晶体扩散模型 (Diffusion-CDVAE) 终极训练与采样流水线
-负责数据流转、多任务损失计算、早停监控以及基于梯度寻优的条件采样。
+晶体扩散模型 (Diffusion-CDVAE) 生产级训练与采样流水线
+特性：
+1. 集成真正的 CGCNN 门控图卷积编码器 (CGCNN Encoder)
+2. 生产级断点续训 (Checkpoint Resume)，防断电与崩溃
+3. 自动保存 latest 和 best 两种权重状态
+4. 基于潜空间梯度寻优的条件扩散生成
 """
 
 import os
@@ -16,8 +20,9 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from pymatgen.core import Structure, Lattice
 from pymatgen.core.periodic_table import Element
 
-# 导入核心模块
+# 导入核心扩散主架构与我们刚写的 CGCNN 编码器
 from diffusion_cdvae import DiffusionCDVAE
+from cgcnn_encoder import CGCNNEncoder
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
 
@@ -84,23 +89,7 @@ def collate_fn(batch):
     }
 
 # ==========================================
-# 2. VAE 编码器 
-# ==========================================
-class SimpleGNNEncoder(nn.Module):
-    def __init__(self, latent_dim=128):
-        super().__init__()
-        self.emb = nn.Embedding(100, 64, padding_idx=0)
-        self.mlp = nn.Sequential(nn.Linear(64 + 3, 128), nn.SiLU(), nn.Linear(128, 128))
-        self.out = nn.Sequential(nn.Linear(128 + 9, 128), nn.SiLU(), nn.Linear(128, latent_dim * 2))
-
-    def forward(self, lattice, fracs, species, batch_indices, num_atoms_list):
-        h = self.mlp(torch.cat([self.emb(species), fracs], dim=-1))
-        pooled = torch.zeros(lattice.size(0), 128, device=lattice.device).index_add_(0, batch_indices, h)
-        pooled = pooled / torch.bincount(batch_indices).view(-1, 1).float()
-        return torch.chunk(self.out(torch.cat([pooled, lattice.view(-1, 9)], dim=-1)), 2, dim=-1)
-
-# ==========================================
-# 3. 多任务训练 Loss 计算
+# 2. 多任务训练 Loss 计算
 # ==========================================
 def compute_diffusion_loss(model, batch, device):
     lattice = batch['lattice'].to(device)
@@ -110,15 +99,14 @@ def compute_diffusion_loss(model, batch, device):
     batch_indices = batch['batch_indices'].to(device)
     num_atoms_list = batch['num_atoms']
 
-    # 1. VAE 编码
+    # 1. CGCNN 编码
     mu, logvar = model.encoder(lattice, fracs, species, batch_indices, num_atoms_list)
     std = torch.exp(0.5 * logvar)
     z = mu + torch.randn_like(std) * std
     
-    # 2. KL 散度
     loss_kl = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1))
 
-    # 3. 辅助预测器损失
+    # 2. 辅助预测器损失
     loss_prop = F.mse_loss(model.property_predictor(z), props)
     loss_lattice = F.mse_loss(model.lattice_predictor(z), lattice)
     
@@ -126,15 +114,13 @@ def compute_diffusion_loss(model, batch, device):
     target_lengths = torch.tensor(num_atoms_list, device=device).clamp(max=20)
     loss_length = F.cross_entropy(pred_lengths, target_lengths)
 
-    # 4. 核心扩散损失与元素分类损失
+    # 3. 核心扩散损失与元素分类损失
     z_nodes = z[batch_indices]
     
-    # 🌟 修复：传入 species 标签，接收 loss_species
     loss_diff, loss_species = model.decoder.forward_training(
         z_nodes, fracs, lattice, num_atoms_list, batch_indices, species
     )
 
-    # 🌟 修复：加入元素学习损失
     total_loss = (loss_diff + 
                   0.5 * loss_prop + 
                   0.1 * loss_lattice + 
@@ -145,7 +131,7 @@ def compute_diffusion_loss(model, batch, device):
     return total_loss, loss_diff.item(), loss_prop.item()
 
 # ==========================================
-# 4. 基于潜空间梯度寻优的逆向生成
+# 3. 基于潜空间梯度寻优的逆向生成
 # ==========================================
 def save_structure_to_cif(lattice, fracs, species, filename):
     valid_idx = [i for i, z_num in enumerate(species) if 0 < z_num <= 118]
@@ -202,19 +188,23 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
         print(f"   ✅ 已生成晶体: {out_path} (原子数: {n})")
 
 # ==========================================
-# 5. 主程序执行
+# 4. 主程序执行 (生产级断点续训)
 # ==========================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, default="real_mp_dataset")
     parser.add_argument("--batch_size", type=int, default=16) 
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--timesteps", type=int, default=200)
     parser.add_argument("--target_props", type=float, nargs='+', default=[-2.0, 1.5])
+    
+    # 🌟 生产级新增参数
+    parser.add_argument("--save_dir", type=str, default="checkpoints", help="模型检查点保存目录")
+    parser.add_argument("--resume", type=str, default=None, help="提供 .pt 文件的路径以继续训练，例如 checkpoints/latest_checkpoint.pt")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f" 启动终极晶体扩散框架！计算设备: {device}")
+    print(f"🚀 启动生产级晶体扩散框架！计算设备: {device}")
     
     dataset = CrystalDataset(args.data)
     cond_dim = dataset.cond_dim
@@ -224,13 +214,27 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
     
-    encoder = SimpleGNNEncoder(latent_dim=128)
+    # 🌟 接入真正的 CGCNN 编码器
+    encoder = CGCNNEncoder(latent_dim=128)
     model = DiffusionCDVAE(encoder=encoder, latent_dim=128, cond_dim=cond_dim, timesteps=args.timesteps).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
 
+    os.makedirs(args.save_dir, exist_ok=True)
+    
+    # 🌟 核心：断点续训逻辑
+    start_epoch = 0
     best_val_loss = float('inf')
     
-    for epoch in range(args.epochs):
+    if args.resume and os.path.exists(args.resume):
+        print(f"🔄 发现检查点，正在恢复训练状态: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_val_loss = checkpoint.get('best_val_loss', float('inf'))
+        print(f"✅ 成功恢复！将从 Epoch {start_epoch} 继续训练 (当前最佳 Val Loss: {best_val_loss:.4f})")
+
+    for epoch in range(start_epoch, args.epochs):
         model.train()
         train_diff, train_prop = 0, 0
         for batch in train_loader:
@@ -250,11 +254,34 @@ if __name__ == "__main__":
         a_tr_d, a_tr_p = train_diff/len(train_loader), train_prop/len(train_loader)
         a_va_d, a_va_p = val_diff/len(val_loader), val_prop/len(val_loader)
 
-        print(f"Ep [{epoch+1:03d}] | Tr Diff: {a_tr_d:.3f} (Prop:{a_tr_p:.3f}) | Val Diff: {a_va_d:.3f} (Prop:{a_va_p:.3f})")
+        print(f"Ep [{epoch+1:03d}/{args.epochs}] | Tr Diff: {a_tr_d:.3f} (Prop:{a_tr_p:.3f}) | Val Diff: {a_va_d:.3f} (Prop:{a_va_p:.3f})")
 
-    print("\n" + "="*50 + "\n 训练完毕，启动物理条件扩散去噪生成\n" + "="*50)
+        # 🌟 核心：保存生产级 Checkpoint
+        checkpoint_data = {
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'best_val_loss': best_val_loss
+        }
+        
+        # 始终保存最新的状态，防断电
+        torch.save(checkpoint_data, os.path.join(args.save_dir, "latest_checkpoint.pt"))
+        
+        # 发现历史最低 Val Loss 时，额外保存一份最佳权重
+        if a_va_d < best_val_loss:
+            best_val_loss = a_va_d
+            torch.save(checkpoint_data, os.path.join(args.save_dir, "best_checkpoint.pt"))
+            print(f"   💾 保存新的最佳模型！")
+
+    print("\n" + "="*50 + "\n🔥 训练完毕，启动物理条件扩散去噪生成\n" + "="*50)
+    
+    # 训练结束后，自动加载最佳权重用于生成
+    best_path = os.path.join(args.save_dir, "best_checkpoint.pt")
+    if os.path.exists(best_path):
+        model.load_state_dict(torch.load(best_path, map_location=device)['model_state_dict'])
+        print("✅ 已加载训练过程中的最佳权重进行生成。")
+        
     targets = (args.target_props + [0.0] * cond_dim)[:cond_dim]
     norm_targets = (np.array(targets, dtype=np.float32) - dataset.prop_mean) / dataset.prop_std
     
-    generate_diffusion_crystals(model, norm_targets.tolist(), "ai_diffusion_materials", n_samples=3, device=device)
-    print("\n🎉 宏伟的扩散工程已完成！所有数学理论与物理框架都已化作你硬盘里的晶体文件。")
+    generate_diffusion_crystals(model, norm_targets.tolist(), "ai_diffusion_materials", n_samples=3, device=device) 
