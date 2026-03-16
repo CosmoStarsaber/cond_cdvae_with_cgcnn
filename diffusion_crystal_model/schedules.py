@@ -8,6 +8,7 @@ schedules.py
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 def cosine_beta_schedule(timesteps, s=0.008):
     """
