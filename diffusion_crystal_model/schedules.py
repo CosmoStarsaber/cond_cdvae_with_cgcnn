@@ -86,5 +86,6 @@ class ContinuousScheduler(nn.Module):
     def _extract(self, a, t, x_shape):
         """从预计算的张量 'a' 中提取特定时间步 't' 的值，并将其形状扩展以匹配 'x_shape'"""
         batch_size = t.shape[0]
-        out = a.gather(-1, t.cpu())
-        return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+        # 🌟 修复：直接使用 t，或者为了绝对安全，使用 t.to(a.device)
+        out = a.gather(-1, t.to(a.device))
+        return out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))

@@ -16,7 +16,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from pymatgen.core import Structure, Lattice
 from pymatgen.core.periodic_table import Element
 
-# 导入我们前三步手写的硬核模块
+# 导入核心模块
 from diffusion_cdvae import DiffusionCDVAE
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pymatgen")
@@ -84,10 +84,8 @@ def collate_fn(batch):
     }
 
 # ==========================================
-# 2. VAE 编码器 (保留 GNN 提取局部特征的能力)
+# 2. VAE 编码器 
 # ==========================================
-# 由于 dynamics 里的 EGNN 是用来去噪的，我们需要一个常规的 GNN 来做编码。
-# 为了保持脚本完整性，我们在此快速定义编码器。
 class SimpleGNNEncoder(nn.Module):
     def __init__(self, latent_dim=128):
         super().__init__()
@@ -96,7 +94,6 @@ class SimpleGNNEncoder(nn.Module):
         self.out = nn.Sequential(nn.Linear(128 + 9, 128), nn.SiLU(), nn.Linear(128, latent_dim * 2))
 
     def forward(self, lattice, fracs, species, batch_indices, num_atoms_list):
-        # 极简版编码器：聚合原子特征和坐标
         h = self.mlp(torch.cat([self.emb(species), fracs], dim=-1))
         pooled = torch.zeros(lattice.size(0), 128, device=lattice.device).index_add_(0, batch_indices, h)
         pooled = pooled / torch.bincount(batch_indices).view(-1, 1).float()
@@ -112,7 +109,6 @@ def compute_diffusion_loss(model, batch, device):
     props = batch['props'].to(device)
     batch_indices = batch['batch_indices'].to(device)
     num_atoms_list = batch['num_atoms']
-    batch_size = lattice.size(0)
 
     # 1. VAE 编码
     mu, logvar = model.encoder(lattice, fracs, species, batch_indices, num_atoms_list)
@@ -122,7 +118,7 @@ def compute_diffusion_loss(model, batch, device):
     # 2. KL 散度
     loss_kl = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1))
 
-    # 3. 辅助预测器损失 (Predictors)
+    # 3. 辅助预测器损失
     loss_prop = F.mse_loss(model.property_predictor(z), props)
     loss_lattice = F.mse_loss(model.lattice_predictor(z), lattice)
     
@@ -130,12 +126,21 @@ def compute_diffusion_loss(model, batch, device):
     target_lengths = torch.tensor(num_atoms_list, device=device).clamp(max=20)
     loss_length = F.cross_entropy(pred_lengths, target_lengths)
 
-    # 4. 核心扩散损失 (Diffusion)
+    # 4. 核心扩散损失与元素分类损失
     z_nodes = z[batch_indices]
-    loss_diff = model.decoder.forward_training(z_nodes, fracs, lattice, num_atoms_list, batch_indices)
+    
+    # 🌟 修复：传入 species 标签，接收 loss_species
+    loss_diff, loss_species = model.decoder.forward_training(
+        z_nodes, fracs, lattice, num_atoms_list, batch_indices, species
+    )
 
-    # 汇总：扩散模型占主导，Predictor 负责整理潜在空间
-    total_loss = loss_diff + 0.5 * loss_prop + 0.1 * loss_lattice + 0.1 * loss_length + 0.01 * loss_kl
+    # 🌟 修复：加入元素学习损失
+    total_loss = (loss_diff + 
+                  0.5 * loss_prop + 
+                  0.1 * loss_lattice + 
+                  0.1 * loss_length + 
+                  0.5 * loss_species + 
+                  0.01 * loss_kl)
 
     return total_loss, loss_diff.item(), loss_prop.item()
 
@@ -149,17 +154,15 @@ def save_structure_to_cif(lattice, fracs, species, filename):
     struct = Structure(Lattice(lattice), symbols, fracs[valid_idx].tolist())
     struct.to(filename=filename)
 
-@torch.no_grad() # 大部分过程不需要梯度
+@torch.no_grad()
 def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, device="cpu"):
     os.makedirs(out_dir, exist_ok=True)
     model.eval()
     
     print(f"\n🔮 [阶段 1] 潜空间梯度寻优 (Latent Optimization)...")
-    # 随机初始化纯噪声 z，并允许计算梯度
     z = torch.randn(n_samples, model.latent_dim, device=device, requires_grad=True)
     cond_target = torch.tensor([target_props_norm], dtype=torch.float32).expand(n_samples, -1).to(device)
     
-    # 使用 Adam 优化器，以 z 为参数，朝着符合目标物理属性的方向“滑动”
     optimizer_z = torch.optim.Adam([z], lr=0.05)
     for step in range(100):
         with torch.enable_grad():
@@ -169,7 +172,7 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
             loss_z.backward()
             optimizer_z.step()
     
-    z = z.detach() # 寻优结束，截断梯度
+    z = z.detach()
     final_prop_loss = F.mse_loss(model.property_predictor(z), cond_target).item()
     print(f"   => 优化完成！z 空间对齐误差降至: {final_prop_loss:.4f}")
 
@@ -204,9 +207,9 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, default="real_mp_dataset")
-    parser.add_argument("--batch_size", type=int, default=16) # 扩散模型显存占用较大，batch 设小点
+    parser.add_argument("--batch_size", type=int, default=16) 
     parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--timesteps", type=int, default=200, help="扩散过程的时间步数 (推荐 200~1000)")
+    parser.add_argument("--timesteps", type=int, default=200)
     parser.add_argument("--target_props", type=float, nargs='+', default=[-2.0, 1.5])
     args = parser.parse_args()
 
@@ -221,7 +224,6 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
     
-    # 初始化核心架构
     encoder = SimpleGNNEncoder(latent_dim=128)
     model = DiffusionCDVAE(encoder=encoder, latent_dim=128, cond_dim=cond_dim, timesteps=args.timesteps).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
