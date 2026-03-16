@@ -1,0 +1,38 @@
+# generated using pymatgen
+data_CaGaAu
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.55652561
+_cell_length_b   7.30571134
+_cell_length_c   7.65970383
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   CaGaAu
+_chemical_formula_sum   'Ca4 Ga4 Au4'
+_cell_volume   254.98128278
+_cell_formula_units_Z   4
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ca  Ca0  1  0.75000000  0.49391846  0.19941669  1
+  Ca  Ca1  1  0.25000000  0.00608154  0.69941669  1
+  Ca  Ca2  1  0.75000000  0.99391846  0.30058331  1
+  Ca  Ca3  1  0.25000000  0.50608154  0.80058331  1
+  Ga  Ga4  1  0.25000000  0.18070893  0.08108173  1
+  Ga  Ga5  1  0.75000000  0.31929107  0.58108173  1
+  Ga  Ga6  1  0.25000000  0.68070893  0.41891827  1
+  Ga  Ga7  1  0.75000000  0.81929107  0.91891827  1
+  Au  Au8  1  0.25000000  0.79633098  0.09220427  1
+  Au  Au9  1  0.75000000  0.20366902  0.90779573  1
+  Au  Au10  1  0.25000000  0.29633198  0.40779573  1
+  Au  Au11  1  0.75000000  0.70366902  0.59220427  1

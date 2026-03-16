@@ -1,0 +1,42 @@
+# generated using pymatgen
+data_Al3Ga3Ni10
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   3.69706758
+_cell_length_b   4.97745812
+_cell_length_c   9.95658061
+_cell_angle_alpha   96.14006594
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Al3Ga3Ni10
+_chemical_formula_sum   'Al3 Ga3 Ni10'
+_cell_volume   182.16991993
+_cell_formula_units_Z   1
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Al  Al0  1  0.50000000  0.27921241  0.35919833  1
+  Al  Al1  1  0.50000000  0.27954615  0.86116472  1
+  Al  Al2  1  0.50000000  0.72004985  0.13991207  1
+  Ga  Ga3  1  0.50000000  0.71899523  0.64082317  1
+  Ga  Ga4  1  -0.00000000  0.00055087  -0.00021071  1
+  Ga  Ga5  1  -0.00000000  0.00324970  0.49828400  1
+  Ni  Ni6  1  0.50000000  0.77365739  0.38624626  1
+  Ni  Ni7  1  0.50000000  0.77366591  0.88772299  1
+  Ni  Ni8  1  0.50000000  0.22646401  0.11308018  1
+  Ni  Ni9  1  0.50000000  0.22591439  0.61310080  1
+  Ni  Ni10  1  -0.00000000  0.99872696  0.24909365  1
+  Ni  Ni11  1  -0.00000000  0.00047124  0.74982533  1
+  Ni  Ni12  1  0.00000000  0.50101910  0.00059322  1
+  Ni  Ni13  1  0.00000000  0.50135924  0.49977842  1
+  Ni  Ni14  1  0.00000000  0.49918377  0.25008918  1
+  Ni  Ni15  1  -0.00000000  0.49793278  0.75129840  1

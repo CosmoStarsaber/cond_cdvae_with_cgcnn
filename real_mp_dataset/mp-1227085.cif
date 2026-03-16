@@ -1,0 +1,36 @@
+# generated using pymatgen
+data_CaYb3(InGe2)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   7.31836591
+_cell_length_b   7.31836591
+_cell_length_c   4.15776981
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   91.91292496
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   CaYb3(InGe2)2
+_chemical_formula_sum   'Ca1 Yb3 In2 Ge4'
+_cell_volume   222.55973031
+_cell_formula_units_Z   1
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ca  Ca0  1  0.82068607  0.17931393  0.00000000  1
+  Yb  Yb1  1  0.17693309  0.82306691  0.00000000  1
+  Yb  Yb2  1  0.67515618  0.67886385  0.00000000  1
+  Yb  Yb3  1  0.32113615  0.32484382  0.00000000  1
+  In  In4  1  0.50086205  0.99812614  0.50000000  1
+  In  In5  1  0.00187386  0.49913795  0.50000000  1
+  Ge  Ge6  1  0.37371157  0.62628843  0.50000000  1
+  Ge  Ge7  1  0.60984338  0.39015662  0.50000000  1
+  Ge  Ge8  1  0.13429449  0.11449783  0.50000000  1
+  Ge  Ge9  1  0.88550217  0.86570551  0.50000000  1

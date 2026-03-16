@@ -1,0 +1,38 @@
+# generated using pymatgen
+data_CeSnPd
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.74009404
+_cell_length_b   7.54823534
+_cell_length_c   7.97172594
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   CeSnPd
+_chemical_formula_sum   'Ce4 Sn4 Pd4'
+_cell_volume   285.22313542
+_cell_formula_units_Z   4
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ce  Ce0  1  0.25000000  0.51311472  0.79547661  1
+  Ce  Ce1  1  0.75000000  0.48688528  0.20452339  1
+  Ce  Ce2  1  0.25000000  0.01311472  0.70452339  1
+  Ce  Ce3  1  0.75000000  0.98688528  0.29547661  1
+  Sn  Sn4  1  0.25000000  0.18734398  0.08717800  1
+  Sn  Sn5  1  0.75000000  0.31265602  0.58717800  1
+  Sn  Sn6  1  0.25000000  0.68734398  0.41282200  1
+  Sn  Sn7  1  0.75000000  0.81265602  0.91282200  1
+  Pd  Pd8  1  0.75000000  0.20535634  0.91700254  1
+  Pd  Pd9  1  0.25000000  0.29464366  0.41700254  1
+  Pd  Pd10  1  0.75000000  0.70535634  0.58299746  1
+  Pd  Pd11  1  0.25000000  0.79464366  0.08299746  1

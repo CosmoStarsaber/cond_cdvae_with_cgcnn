@@ -1,0 +1,38 @@
+# generated using pymatgen
+data_CaGa3Ni2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.09694306
+_cell_length_b   6.24810129
+_cell_length_c   6.24810075
+_cell_angle_alpha   103.09474541
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   CaGa3Ni2
+_chemical_formula_sum   'Ca2 Ga6 Ni4'
+_cell_volume   193.80428469
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ca  Ca0  1  0.25000000  0.34260796  0.34260796  1
+  Ca  Ca1  1  0.75000000  0.65739204  0.65739204  1
+  Ga  Ga2  1  0.75000000  0.46861811  0.08794243  1
+  Ga  Ga3  1  0.75000000  0.08794243  0.46861811  1
+  Ga  Ga4  1  0.25000000  0.53138189  0.91205757  1
+  Ga  Ga5  1  0.75000000  0.05562022  0.05562022  1
+  Ga  Ga6  1  0.25000000  0.94437978  0.94437978  1
+  Ga  Ga7  1  0.25000000  0.91205757  0.53138189  1
+  Ni  Ni8  1  0.50000000  0.79232912  0.20767088  1
+  Ni  Ni9  1  -0.00000000  0.79232912  0.20767088  1
+  Ni  Ni10  1  0.00000000  0.20767088  0.79232912  1
+  Ni  Ni11  1  0.50000000  0.20767088  0.79232912  1

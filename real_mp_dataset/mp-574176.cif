@@ -1,0 +1,46 @@
+# generated using pymatgen
+data_Ba(InAu)2
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   4.76020389
+_cell_length_b   8.83485852
+_cell_length_c   12.56808883
+_cell_angle_alpha   90.00000000
+_cell_angle_beta   90.00000000
+_cell_angle_gamma   90.00000000
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   Ba(InAu)2
+_chemical_formula_sum   'Ba4 In8 Au8'
+_cell_volume   528.56012399
+_cell_formula_units_Z   4
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ba  Ba0  1  0.75000000  0.72002813  0.33329347  1
+  Ba  Ba1  1  0.25000000  0.77997187  0.83329347  1
+  Ba  Ba2  1  0.25000000  0.27997187  0.66670653  1
+  Ba  Ba3  1  0.75000000  0.22002813  0.16670653  1
+  In  In4  1  0.25000000  0.36189970  0.35790325  1
+  In  In5  1  0.25000000  0.86189970  0.14209675  1
+  In  In6  1  0.75000000  0.60174165  0.04882700  1
+  In  In7  1  0.75000000  0.63810030  0.64209675  1
+  In  In8  1  0.75000000  0.13810030  0.85790325  1
+  In  In9  1  0.25000000  0.89825835  0.54882700  1
+  In  In10  1  0.75000000  0.10174165  0.45117300  1
+  In  In11  1  0.25000000  0.39825835  0.95117300  1
+  Au  Au12  1  0.25000000  0.09000609  0.97853261  1
+  Au  Au13  1  0.75000000  0.47210263  0.83740628  1
+  Au  Au14  1  0.75000000  0.97210263  0.66259372  1
+  Au  Au15  1  0.25000000  0.52789737  0.16259372  1
+  Au  Au16  1  0.25000000  0.02789737  0.33740628  1
+  Au  Au17  1  0.75000000  0.90999391  0.02146739  1
+  Au  Au18  1  0.25000000  0.59000609  0.52146739  1
+  Au  Au19  1  0.75000000  0.40999391  0.47853261  1

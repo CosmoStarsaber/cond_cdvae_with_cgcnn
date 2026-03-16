@@ -1,0 +1,38 @@
+# generated using pymatgen
+data_CeSi2Ir3
+_symmetry_space_group_name_H-M   'P 1'
+_cell_length_a   5.61847969
+_cell_length_b   6.67432328
+_cell_length_c   6.67432332
+_cell_angle_alpha   65.01741313
+_cell_angle_beta   65.10840679
+_cell_angle_gamma   65.10841388
+_symmetry_Int_Tables_number   1
+_chemical_formula_structural   CeSi2Ir3
+_chemical_formula_sum   'Ce2 Si4 Ir6'
+_cell_volume   196.58891980
+_cell_formula_units_Z   2
+loop_
+ _symmetry_equiv_pos_site_id
+ _symmetry_equiv_pos_as_xyz
+  1  'x, y, z'
+loop_
+ _atom_site_type_symbol
+ _atom_site_label
+ _atom_site_symmetry_multiplicity
+ _atom_site_fract_x
+ _atom_site_fract_y
+ _atom_site_fract_z
+ _atom_site_occupancy
+  Ce  Ce0  1  0.96792925  0.75000000  0.75000000  1
+  Ce  Ce1  1  0.03207075  0.25000000  0.25000000  1
+  Si  Si2  1  0.61968718  0.57896607  0.57896607  1
+  Si  Si3  1  0.72238268  0.07896607  0.07896607  1
+  Si  Si4  1  0.38031282  0.42103393  0.42103393  1
+  Si  Si5  1  0.27761732  0.92103393  0.92103393  1
+  Ir  Ir6  1  0.50000000  0.21794690  0.78205310  1
+  Ir  Ir7  1  0.50000000  0.50000000  -0.00000000  1
+  Ir  Ir8  1  0.00000000  0.28205310  0.71794690  1
+  Ir  Ir9  1  0.50000000  0.78205310  0.21794690  1
+  Ir  Ir10  1  -0.00000000  0.71794690  0.28205310  1
+  Ir  Ir11  1  0.50000000  0.00000000  0.50000000  1
