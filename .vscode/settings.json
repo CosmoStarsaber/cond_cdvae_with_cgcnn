@@ -1,0 +1,5 @@
+{"python.analysis.extraPaths": [
+    "C:\\ProgramData\\anaconda3",          // 改成你自己环境的路径
+    "C:\\ProgramData\\anaconda3\\Lib\\site-packages"
+]
+}
