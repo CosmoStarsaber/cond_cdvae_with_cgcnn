@@ -1,11 +1,12 @@
 """
 train.py
 
-晶体扩散模型 (Diffusion-CDVAE) 终极生产级流水线
+晶体扩散模型 (Diffusion-CDVAE) 终极生产级流水线 (含对称性增强)
 特性：
 1. 本地纯净运行 (无断网报错风险)
-2. 内存级硬截断 (生成时直接过滤原子碰撞的废片，不写盘)
-3. 断点续训与定期条件采样
+2. 内存级硬截断 (生成时直接过滤原子碰撞废片)
+3. 强制对称化拦截 (Symmetrization，极大缓解 P1 模式崩溃)
+4. 断点续训、定期条件采样与真实结构重建测试
 """
 
 import os
@@ -18,6 +19,7 @@ from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
 from pymatgen.core import Structure, Lattice
 from pymatgen.core.periodic_table import Element
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer  # 🌟 引入对称性分析器
 
 # 导入终极版的主架构 (已内置 CGCNN Encoder 和 斥力惩罚)
 from diffusion_cdvae import DiffusionCDVAE
@@ -87,15 +89,15 @@ def collate_fn(batch):
     }
 
 # ==========================================
-# 2. 带有硬截断质检的 CFG 采样生成
+# 2. CFG 条件采样与潜空间梯度寻优 (含强制对称化)
 # ==========================================
 @torch.no_grad()
-def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, device="cpu", guidance_scale=2.0, temperature=1.0, epoch=None):
+def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, device="cpu", guidance_scale=8.0, temperature=0.05, epoch=None):
     os.makedirs(out_dir, exist_ok=True)
     model.eval()
     
     prefix = f"ep{epoch}_" if epoch is not None else "final_"
-    print(f"\n🔮 [{prefix.strip('_')}] 潜空间梯度寻优...")
+    print(f"\n🔮 [{prefix.strip('_')}] 潜空间梯度寻优 (CFG={guidance_scale}, Temp={temperature})...")
     
     z = torch.randn(n_samples, model.latent_dim, device=device, requires_grad=True)
     cond_target = torch.tensor([target_props_norm], dtype=torch.float32).expand(n_samples, -1).to(device)
@@ -117,7 +119,7 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
     batch_indices = torch.tensor([i for i, n in enumerate(num_atoms_list) for _ in range(n)], device=device)
     z_nodes = z[batch_indices]
     
-    print(f"🌀 朗之万去噪 (CFG={guidance_scale}, Temp={temperature})...")
+    print(f"🌀 朗之万去噪中...")
     frac_coords, species_logits = model.decoder.sample(
         z_nodes, lattice, num_atoms_list, batch_indices, 
         guidance_scale=guidance_scale, temperature=temperature
@@ -136,7 +138,6 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
         # --- 🌟 核心硬截断：内存级物理质检 ---
         valid_idx = [j for j, z_num in enumerate(s) if 0 < z_num <= 118]
         if len(valid_idx) < 1:
-            print(f"   🚫 废片拦截: 样本 {i} 无有效化学元素。")
             continue
             
         try:
@@ -152,11 +153,25 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
                     print(f"   🚫 废片拦截: 样本 {i} 发生原子坍缩重叠，已在内存中销毁！")
                     continue
             
-            # 通过质检，写入硬盘
+            # 🌟 核心增强：强制对称化 (Symmetrization) 缓解 P1 灾难
+            try:
+                # 使用相对宽松的容差寻找潜在对称性并强制提纯
+                sga = SpacegroupAnalyzer(struct, symprec=0.1)
+                refined_struct = sga.get_refined_structure()
+                sg_symbol = sga.get_space_group_symbol()
+                
+                # 如果模型捕捉到了比 P1 高级的对称性，就替换为绝对对称的理想坐标
+                if "P1" not in sg_symbol:
+                    struct = refined_struct
+                    print(f"   ✨ 对称化成功: 样本 {i} 提纯至空间群 {sg_symbol}")
+            except Exception:
+                pass # 对称化如果失败（比如极度扭曲），保留原结构
+            
+            # 通过质检与对称化，写入硬盘
             out_path = os.path.join(out_dir, f"{prefix}sample_{i}.cif")
             struct.to(filename=out_path)
             valid_count += 1
-            print(f"   ✅ 生成成功: {out_path} (原子数: {len(valid_idx)})")
+            print(f"   ✅ 生成成功: {out_path} (原子数: {len(struct)})")
             
         except Exception as e:
             print(f"   🚫 废片拦截: 样本 {i} 晶格畸变严重无法解析 ({e})")
@@ -164,7 +179,59 @@ def generate_diffusion_crystals(model, target_props_norm, out_dir, n_samples=5, 
     print(f"🎯 本批次生成结束，存活率: {valid_count}/{n_samples}\n")
 
 # ==========================================
-# 3. 主程序执行 (生产级流水线)
+# 3. 真实重建测试 (Reconstruction Test)
+# ==========================================
+@torch.no_grad()
+def test_reconstruction(model, dataloader, out_dir, device="cpu", temperature=0.05):
+    """测试模型的真实结构解压能力 (绕过潜空间寻优，直接给真实的 z)"""
+    os.makedirs(out_dir, exist_ok=True)
+    model.eval()
+    print(f"\n🔍 [诊断模式] 真实晶体编码重建测试...")
+    
+    # 抽取一个验证集批次
+    batch = next(iter(dataloader))
+    lattice = batch['lattice'].to(device)
+    fracs = batch['fracs'].to(device)
+    species = batch['species'].to(device)
+    batch_indices = batch['batch_indices'].to(device)
+    num_atoms_list = batch['num_atoms']
+    
+    # 1. 真实编码：用 CGCNN 提取绝对真实的 z
+    mu, _ = model.encoder(lattice, fracs, species, batch_indices, num_atoms_list)
+    z = mu 
+    z_nodes = z[batch_indices]
+    
+    # 2. 预测晶格
+    pred_lattice = model.lattice_predictor(z)
+    
+    print(f"🌀 朗之万去噪重建中 (Temp={temperature})...")
+    # 3. 扩散解码：重建任务不需要 CFG guidance (设为 1.0)
+    recon_fracs, recon_species_logits = model.decoder.sample(
+        z_nodes, pred_lattice, num_atoms_list, batch_indices, 
+        guidance_scale=1.0, temperature=temperature
+    )
+    
+    recon_species = torch.argmax(recon_species_logits, dim=-1).cpu().numpy()
+    recon_fracs_np = recon_fracs.cpu().numpy()
+    pred_lattice_np = pred_lattice.cpu().numpy()
+    
+    start_idx = 0
+    for i, n in enumerate(num_atoms_list[:3]): # 只抽取前 3 个进行保存比对
+        f = recon_fracs_np[start_idx : start_idx + n]
+        s = recon_species[start_idx : start_idx + n]
+        l = pred_lattice_np[i]
+        start_idx += n
+        
+        valid_idx = [j for j, z_num in enumerate(s) if 0 < z_num <= 118]
+        if valid_idx:
+            symbols = [Element.from_Z(int(s[j])).symbol for j in valid_idx]
+            struct = Structure(Lattice(l), symbols, f[valid_idx].tolist())
+            out_path = os.path.join(out_dir, f"recon_sample_{i}.cif")
+            struct.to(filename=out_path)
+            print(f"   📦 重建样本已保存至 {out_path} (请与原数据集对比对称性)")
+
+# ==========================================
+# 4. 主程序执行 (生产级流水线)
 # ==========================================
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -177,12 +244,12 @@ if __name__ == "__main__":
     # 监控与保存
     parser.add_argument("--save_dir", type=str, default="checkpoints", help="模型保存路径")
     parser.add_argument("--resume", type=str, default=None, help="恢复训练的权重路径")
-    parser.add_argument("--sample_every", type=int, default=50, help="每 N 轮采样一次示例，设为 0 则仅在结束时采样")
+    parser.add_argument("--sample_every", type=int, default=50, help="每 N 轮采样一次示例")
     
-    # 物理条件采样超参
+    # 物理条件采样超参 (🌟 更新默认值：强引导 + 深冷采样)
     parser.add_argument("--target_props", type=float, nargs='+', default=[-2.0, 1.5])
-    parser.add_argument("--guidance_scale", type=float, default=2.0, help="CFG 引导强度")
-    parser.add_argument("--temperature", type=float, default=1.0, help="采样温度")
+    parser.add_argument("--guidance_scale", type=float, default=8.0, help="CFG 引导强度")
+    parser.add_argument("--temperature", type=float, default=0.05, help="采样温度 (深冷退火抑制抖动)")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -196,7 +263,6 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
     
-    # 确保 diffusion_cdvae.py 已经包含了我们上一把加进去的斥力惩罚
     model = DiffusionCDVAE(latent_dim=128, cond_dim=cond_dim, timesteps=args.timesteps).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
 
@@ -237,7 +303,6 @@ if __name__ == "__main__":
                 
         for k in val_metrics: val_metrics[k] /= len(val_loader)
 
-        # 🌟 终端现在会清楚地打印出排斥力 (Rep) 的下降趋势！
         print(f"Ep [{epoch+1:03d}/{args.epochs}] | Tr Diff: {train_metrics['loss_diff']:.3f} (Rep: {train_metrics['loss_rep']:.3f}) | Val Diff: {val_metrics['loss_diff']:.3f} (Rep: {val_metrics['loss_rep']:.3f}, Spec: {val_metrics['loss_species']:.3f}) | Total: {val_metrics['loss_total']:.3f}")
 
         checkpoint_data = {
@@ -259,7 +324,7 @@ if __name__ == "__main__":
                 guidance_scale=args.guidance_scale, temperature=args.temperature, epoch=epoch+1
             )
 
-    print("\n" + "="*50 + "\n🔥 训练完毕，加载最佳权重进行最终物理条件采样\n" + "="*50)
+    print("\n" + "="*50 + "\n🔥 训练完毕，执行最终流水线任务\n" + "="*50)
     best_path = os.path.join(args.save_dir, "best_checkpoint.pt")
     if os.path.exists(best_path):
         model.load_state_dict(torch.load(best_path, map_location=device)['model_state_dict'])
@@ -267,7 +332,11 @@ if __name__ == "__main__":
     targets = (args.target_props + [0.0] * cond_dim)[:cond_dim]
     norm_targets = (np.array(targets, dtype=np.float32) - dataset.prop_mean) / dataset.prop_std
     
+    # 任务 1: 物理条件寻优采样
     generate_diffusion_crystals(
-        model, norm_targets.tolist(), "generated_cifs", n_samples=10, device=device, 
+        model, norm_targets.tolist(), "generated_cifs", n_samples=5, device=device, 
         guidance_scale=args.guidance_scale, temperature=args.temperature, epoch=None
     )
+    
+    # 任务 2: 真实晶体编码重建测试
+    test_reconstruction(model, val_loader, "generated_cifs", device=device, temperature=args.temperature)
